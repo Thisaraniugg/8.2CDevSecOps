@@ -27,16 +27,18 @@ pipeline {
     stage('NPM Audit (Security Scan)') {
       steps { bat 'npm audit || exit /b 0' }
     }
-  stage('SonarCloud Analysis') {
-  withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-    bat '''
-      call npx --yes sonar-scanner ^
-        -Dsonar.host.url=https://sonarcloud.io ^
-        -Dsonar.organization=thisaraniugg ^
-        -Dsonar.projectKey=thisaraniugg_thisaraniugg-8-2cdevsecops ^
-        -Dsonar.token=%SONAR_TOKEN%
-    '''
-   }
-  }
+     stage('SonarCloud Analysis') {
+      steps {
+        withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+          bat '''
+            call npx --yes sonar-scanner ^
+              -Dsonar.host.url=https://sonarcloud.io ^
+              -Dsonar.organization=thisaraniugg ^
+              -Dsonar.projectKey=thisaraniugg_thisaraniugg-8-2cdevsecops ^
+              -Dsonar.token=%SONAR_TOKEN%
+          '''
+        }
+      }
+    }
  }
 }
