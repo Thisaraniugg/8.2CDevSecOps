@@ -27,26 +27,25 @@ pipeline {
     stage('NPM Audit (Security Scan)') {
       steps { bat 'npm audit || exit /b 0' }
     }
-    stage('SonarCloud Analysis') {
+   stage('SonarCloud Analysis') {
+  environment {
+    UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36'
+  }
   steps {
     bat '''
-          setlocal
+      setlocal
 
       rem --- clean old artifacts ---
       if exist scanner.zip del /q scanner.zip
       for /d %%D in (sonar-scanner-*) do rmdir /s /q "%%D"
 
-      rem --- try curl first (Git for Windows usually provides it); fall back to PowerShell ---
-      curl --version >NUL 2>&1
-      if errorlevel 1 (
-        echo curl not available, using PowerShell...
-        powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri 'https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-6.2.1.4610-windows-x64.zip' -OutFile 'scanner.zip'"  ||  powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/SonarSource/sonar-scanner-cli/releases/download/v6.2.1.4610/sonar-scanner-6.2.1.4610-windows-x64.zip' -OutFile 'scanner.zip'"
-      ) else (
-        curl -L -f -o scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-6.2.1.4610-windows-x64.zip  ||  curl -L -f -o scanner.zip https://github.com/SonarSource/sonar-scanner-cli/releases/download/v6.2.1.4610/sonar-scanner-6.2.1.4610-windows-x64.zip
-      )
+      rem --- try SonarSource CDN with browser-like UA, then two GitHub tags ---
+      curl -L -f -A "%UA%" -o scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-6.2.1.4610-windows-x64.zip ^
+      || curl -L -f -A "%UA%" -o scanner.zip https://github.com/SonarSource/sonar-scanner-cli/releases/download/sonar-scanner-6.2.1.4610/sonar-scanner-6.2.1.4610-windows-x64.zip ^
+      || curl -L -f -A "%UA%" -o scanner.zip https://github.com/SonarSource/sonar-scanner-cli/releases/download/sonar-scanner-6.1.0.4477/sonar-scanner-6.1.0.4477-windows-x64.zip
 
       if not exist scanner.zip (
-        echo Download failed.
+        echo Download failed after all mirrors.
         exit /b 1
       )
 
@@ -59,7 +58,7 @@ pipeline {
         exit /b 1
       )
 
-      rem --- run scanner (token comes from Jenkins credential SONAR_TOKEN) ---
+      rem --- run scanner (token from Jenkins creds) ---
       set "PATH=%cd%\\%SCANDIR%\\bin;%PATH%"
       "%cd%\\%SCANDIR%\\bin\\sonar-scanner.bat" -D"sonar.login=%SONAR_TOKEN%"
     '''
