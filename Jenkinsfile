@@ -27,42 +27,16 @@ pipeline {
     stage('NPM Audit (Security Scan)') {
       steps { bat 'npm audit || exit /b 0' }
     }
-   stage('SonarCloud Analysis') {
-  environment {
-    UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36'
-  }
-  steps {
+  stage('SonarCloud Analysis') {
+  withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
     bat '''
-      setlocal
-
-      rem --- clean old artifacts ---
-      if exist scanner.zip del /q scanner.zip
-      for /d %%D in (sonar-scanner-*) do rmdir /s /q "%%D"
-
-      rem --- try SonarSource CDN with browser-like UA, then two GitHub tags ---
-      curl -L -f -A "%UA%" -o scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-6.2.1.4610-windows-x64.zip ^
-      || curl -L -f -A "%UA%" -o scanner.zip https://github.com/SonarSource/sonar-scanner-cli/releases/download/sonar-scanner-6.2.1.4610/sonar-scanner-6.2.1.4610-windows-x64.zip ^
-      || curl -L -f -A "%UA%" -o scanner.zip https://github.com/SonarSource/sonar-scanner-cli/releases/download/sonar-scanner-6.1.0.4477/sonar-scanner-6.1.0.4477-windows-x64.zip
-
-      if not exist scanner.zip (
-        echo Download failed after all mirrors.
-        exit /b 1
-      )
-
-      rem --- unzip & locate scanner ---
-      powershell -ExecutionPolicy Bypass -Command "Expand-Archive -Path scanner.zip -DestinationPath . -Force"
-      for /d %%D in (sonar-scanner-*) do set "SCANDIR=%%D"
-      if not defined SCANDIR (
-        echo Could not find extracted sonar-scanner folder.
-        dir
-        exit /b 1
-      )
-
-      rem --- run scanner (token from Jenkins creds) ---
-      set "PATH=%cd%\\%SCANDIR%\\bin;%PATH%"
-      "%cd%\\%SCANDIR%\\bin\\sonar-scanner.bat" -D"sonar.login=%SONAR_TOKEN%"
+      call npx --yes sonar-scanner ^
+        -Dsonar.host.url=https://sonarcloud.io ^
+        -Dsonar.organization=thisaraniugg ^
+        -Dsonar.projectKey=thisaraniugg_thisaraniugg-8-2cdevsecops ^
+        -Dsonar.token=%SONAR_TOKEN%
     '''
-    }
    }
+  }
  }
 }
