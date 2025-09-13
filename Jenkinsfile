@@ -1,5 +1,8 @@
 pipeline {
   agent any
+  environment {
+  SONAR_TOKEN = credentials('SONAR_TOKEN')
+}
   stages {
     stage('Checkout') {
       steps {
@@ -24,5 +27,18 @@ pipeline {
     stage('NPM Audit (Security Scan)') {
       steps { bat 'npm audit || exit /b 0' }
     }
-  }
+    stage('SonarCloud Analysis') {
+  steps {
+    bat '''
+        if exist sonar-scanner rmdir /s /q sonar-scanner
+         if exist scanner.zip del /q scanner.zip
+        powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-6.2.1.4610-windows-x64.zip -OutFile scanner.zip"
+        powershell -ExecutionPolicy Bypass -Command "Expand-Archive -Path scanner.zip -DestinationPath . -Force"
+        for /d %%D in (sonar-scanner-*) do set SCANDIR=%%D
+         set PATH=%cd%\\%SCANDIR%\\bin;%PATH%
+         sonar-scanner -D"sonar.login=%SONAR_TOKEN%"
+    '''
+    }
+   }
+ }
 }
